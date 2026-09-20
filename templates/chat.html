@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room: {( room }}</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+        <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #f0f2f5; display: flex; flex-direction: column; height: 100vh; }
+        .header { background: #0084ff; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .header h3 { font-size: 18px; }
+        .leave-btn { background: #ff4d4d; color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 14px; font-weight: bold; }
+        .leave-btn:hover { background: #cc0000; }
+        .chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #fff; max-width: 800px; width: 100%; margin: 20px auto; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .message { padding: 10px 15px; border-radius: 15px; max-width: 70%; word-wrap: break-word; font-size: 15px; line-height: 1.4; }
+        .msg-received { background: #e4e6eb; color: black; align-self: flex-start; border-top-left-radius: 2px; }
+        .msg-sent { background: #0084ff; color: white; align-self: flex-end; border-top-right-radius: 2px; }
+        .msg-system { background: #fff3cd; color: #856404; align-self: center; text-align: center; border-radius: 5px; font-size: 13px; max-width: 90%; border: 1px solid #ffeeba; }
+        .input-area { background: #fff; padding: 15px 20px; display: flex; gap: 10px; max-width: 800px; width: 100%; margin: 0 auto 20px auto; border-radius: 8px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+        #message-input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 20px; font-size: 15px; outline: none; }
+        #message-input:focus { border-color: #0084ff; }
+        #send-btn { background: #0084ff; color: white; border: none; padding: 0 25px; border-radius: 20px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        #send-btn:hover { background: #0066cc; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h3>Room: <strong>{{ room }}</strong></h3>
+      <h3>Live🔴 <span id="live-counter">{{ total_live }}</span></h3>
+      <span>Logged in as: <strong>{{ username }}</strong></span>
+      <a href="#" onclick="leaveRoomCleanly(event)" class="leave-btn">Leave Room</a>
+    </div>
+
+    <div class="chat-box" id="chat-box">
+      <!-- Messages will appear here dynamically -->
+    </div>
+
+    <div class="input-area">
+      <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+      <button id="send-btn">Send</button>
+    </div>
+<script>
+  // Connect to the Flask-SocketIO server
+  const socket = io();
+  const currentUsername = "{{ username }}";
+
+  // Automatically trigger the join room event when page loads
+  socket.on('connect', () => {
+    socket.emit('join', {});
+  });
+
+  // ==========================================
+  // NEW: Listen for past chat history from server
+  // ==========================================
+  socket.on('load_history', (historyList) => {
+    const chatBox = document.getElementById('chat-box');
+    chatBox.innerHTML = ''; // Clear container to avoid duplicate displays on refresh
+
+    historyList.forEach((data) => {
+      const messageElement = document.createElement('div');
+      messageElement.classList.add('message');
+
+      // Check if the past message belongs to this user or someone else
+      if (data.username === currentUsername) {
+        messageElement.classList.add('msg-sent');
+        messageElement.textContent = data.msg;
+      } else {
+        messageElement.classList.add('msg-received');
+        messageElement.textContent = `${data.username}: ${data.msg}`;
+      }
+
+      chatBox.appendChild(messageElement);
+    });
+
+    // Auto-scroll down to the bottom of the old history notes
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
+
+  // Room Leave function
+  function leaveRoomCleanly(event) {
+    event.preventDefault();
+    socket.disconnect();
+    setTimeout(() => {
+      window.location.href="/";
+    }, 100);
+  }
+
+  // Listening for total members of room
+  socket.on('update_live_count', (data) => {
+    document.getElementById('live-counter').textContent = data.count;
+  });
+
+  // Listen for incoming live messages from the server
+  socket.on('message', (msg) => {
+    const chatBox = document.getElementById('chat-box');
+    const messageElement = document.createElement('div');
+    messageElement.classList.add('message');
+
+    if (msg.startsWith('📢') || msg.startsWith('🚪')) {
+      messageElement.classList.add('msg-system');
+      messageElement.textContent = msg;
+    } else if (msg.startsWith(currentUsername + ': ')) {
+      messageElement.classList.add('msg-sent');
+      messageElement.textContent = msg.replace(currentUsername + ':', '').trim();
+    } else {
+      messageElement.classList.add('msg-received');
+      messageElement.textContent = msg;
+    }
+
+    chatBox.appendChild(messageElement);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
+
+  // Handle sending messages 
+  function sendMessage() {
+    const input = document.getElementById('message-input');
+    const messageText = input.value.trim();
+
+    if (messageText !== "") {
+      socket.emit('message', messageText);
+      input.value = ''; 
+    }
+  }
+
+  document.getElementById('send-btn').addEventListener('click', sendMessage);
+
+  document.getElementById('message-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      sendMessage();
+    }
+  });
+</script>
+
+  </body>
+  </html>
