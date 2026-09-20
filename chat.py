@@ -3,14 +3,14 @@ from flask_socketio import SocketIO, join_room, leave_room, send, emit
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key_here'
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app)
 
 Allowed_room = ["Mini", "Hacker", "Mut"]
 Room_meb = {}
 
 # NEW: Dictionary to store message history for each room
 # Format: {"Mini": [{"username": "Alex", "msg": "Hi!"}], "Hacker": []}
-#chat_history = {room: [] for room in Allowed_room}
+chat_history = {room: [] for room in Allowed_room}
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -37,7 +37,7 @@ def chat():
 
 @socketio.on('join')
 def handle_join(data):
-    global Room_meb # chat_history
+    global Room_meb, chat_history
     username = session.get('username')
     room = session.get('room')
     
@@ -45,8 +45,8 @@ def handle_join(data):
     Room_meb[room] = Room_meb.get(room, 0) + 1
     
     # 1. Send past message history ONLY to the user who just joined/refreshed
-    #if room in chat_history:
-       # emit('load_history', chat_history[room], to=request.sid)
+    if room in chat_history:
+        emit('load_history', chat_history[room], to=request.sid)
 
     # 2. Notify OTHERS in the room that a new user joined
     send(f"📢 {username} has joined the chat.", to=room, include_self=False)
@@ -56,7 +56,7 @@ def handle_join(data):
 
 @socketio.on('message')
 def handle_message(msg):
-    #global chat_history
+    global chat_history
     username = session.get('username')
     room = session.get('room')
     
@@ -64,10 +64,10 @@ def handle_message(msg):
     message_data = {"username": username, "msg": msg}
     
     # 1. Save message to history (keeps the last 50 messages to save memory)
-    #if room in chat_history:
-        #chat_history[room].append(message_data)
-        #if len(chat_history[room]) > 50: 
-           # chat_history[room].pop(0)
+    if room in chat_history:
+        chat_history[room].append(message_data)
+        if len(chat_history[room]) > 50: 
+            chat_history[room].pop(0)
 
     # 2. Broadcast the formatted message to the entire room
     formatted_msg = f"{username}: {msg}"
@@ -88,4 +88,4 @@ def handle_disconnect(reason=None):
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
-    
+            
