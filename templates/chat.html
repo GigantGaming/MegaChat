@@ -53,7 +53,7 @@
   // ==========================================
   // NEW: Listen for past chat history from server
   // ==========================================
-  socket.on('load_history', (historyList) => {
+ /* socket.on('load_history', (historyList) => {
     const chatBox = document.getElementById('chat-box');
     chatBox.innerHTML = ''; // Clear container to avoid duplicate displays on refresh
 
@@ -75,7 +75,7 @@
 
     // Auto-scroll down to the bottom of the old history notes
     chatBox.scrollTop = chatBox.scrollHeight;
-  });
+  }); */
 
   // Room Leave function
   function leaveRoomCleanly(event) {
