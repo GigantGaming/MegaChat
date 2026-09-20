@@ -22,7 +22,7 @@ def index():
             session['room'] = room
             return redirect(url_for('chat'))
             
-    return render_template('index3.html')
+    return render_template('index.html')
 
 # 2. Chat Room Page
 @app.route('/chat')
